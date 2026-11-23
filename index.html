@@ -1,0 +1,377 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>Binder Integration Workflow</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Space+Grotesk:wght@500;700&display=swap">
+<style>
+/* Layout: sticky tab bar over a single column; flows render as a vertical timeline grouped into rounds. */
+:root{
+  --bg:#f5f7f9; --surface:#ffffff; --fg:#14232e; --muted:#5a6b78; --line:#d9e0e6;
+  --accent:#0f5f7a; --accent-soft:#dcedf3;
+  --export:#1d63c4; --export-bg:#e1ecfa;
+  --import:#0b7a62; --import-bg:#dcf3ec;
+  --preport:#a15c07; --preport-bg:#fbebd2;
+  --match:#7a3fb0; --match-bg:#eddff8;
+  --user:#14232e; --wait:#8a6a00; --verify:#0b7a62; --tax:#b4442c;
+  --warn-bg:#fff4d6; --warn-fg:#6b4d00;
+  --font-display:"Space Grotesk",system-ui,sans-serif; --font-body:"Inter",system-ui,sans-serif;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#0e171d; --surface:#16232b; --fg:#e6eef3; --muted:#9ab0bf; --line:#273944;
+  --accent:#6cc3de; --accent-soft:#17323d;
+  --export:#7fb1f5; --export-bg:#17294a;
+  --import:#5fd3b3; --import-bg:#123a30;
+  --preport:#f0b45c; --preport-bg:#3d2c0f;
+  --match:#c79bf0; --match-bg:#2f1f45;
+  --user:#e6eef3; --wait:#e8c35a; --verify:#5fd3b3; --tax:#f0937d;
+  --warn-bg:#3a3010; --warn-fg:#f0d98a; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0e171d; --surface:#16232b; --fg:#e6eef3; --muted:#9ab0bf; --line:#273944;
+  --accent:#6cc3de; --accent-soft:#17323d;
+  --export:#7fb1f5; --export-bg:#17294a;
+  --import:#5fd3b3; --import-bg:#123a30;
+  --preport:#f0b45c; --preport-bg:#3d2c0f;
+  --match:#c79bf0; --match-bg:#2f1f45;
+  --user:#e6eef3; --wait:#e8c35a; --verify:#5fd3b3; --tax:#f0937d;
+  --warn-bg:#3a3010; --warn-fg:#f0d98a; color-scheme:dark}
+
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--fg);font:15px/1.55 var(--font-body);margin:0;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:0 48px}
+.wrap{max-width:980px;margin:0 auto}
+header{padding:28px 0 12px}
+h1{font:700 30px/1.15 var(--font-display);margin:0 0 6px;text-wrap:balance}
+header p{margin:0;color:var(--muted);max-width:68ch}
+.tabs{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var(--bg);padding:10px 0;border-bottom:1px solid var(--line);
+  display:flex;gap:6px;overflow-x:auto;scrollbar-width:thin}
+.tabs button{flex:none;font:500 14px var(--font-body);color:var(--muted);background:transparent;border:1px solid var(--line);
+  padding:8px 14px;border-radius:999px;cursor:pointer}
+.tabs button:hover{color:var(--fg)}
+.tabs button[aria-selected="true"]{background:var(--accent);border-color:var(--accent);color:var(--bg);font-weight:600}
+button:focus-visible,input:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+main{padding-top:22px}
+h2{font:700 22px/1.2 var(--font-display);margin:0 0 4px}
+.lede{color:var(--muted);margin:0 0 18px;max-width:70ch}
+.badges{display:flex;flex-wrap:wrap;gap:8px;margin:0 0 18px}
+.badge{font:600 12px var(--font-body);letter-spacing:.04em;text-transform:uppercase;padding:4px 10px;border-radius:6px;background:var(--accent-soft);color:var(--accent)}
+
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:18px}
+.diagram{overflow-x:auto}
+.diagram svg{display:block;min-width:720px;width:100%;height:auto;color:var(--fg)}
+.diagram text{font-family:var(--font-body);fill:currentColor}
+figcaption{color:var(--muted);font-size:13px;margin-top:10px}
+figure{margin:0}
+
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:14px;margin-top:18px}
+.grid>*{min-width:0}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:16px;display:flex;flex-direction:column;gap:8px}
+.card h3{font:700 16px var(--font-display);margin:0}
+.card p{margin:0;color:var(--muted);font-size:14px}
+.card .go{margin-top:auto;align-self:flex-start;font:600 13px var(--font-body);color:var(--accent);background:none;border:0;padding:0;cursor:pointer}
+.jobs-key{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px;margin-top:18px}
+.jobs-key>div{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:12px 14px;font-size:13.5px;color:var(--muted)}
+.jobs-key .chip{margin-bottom:6px}
+
+.chip{display:inline-block;font:600 12px var(--font-body);padding:2px 9px;border-radius:5px;white-space:nowrap}
+.chip.export{background:var(--export-bg);color:var(--export)}
+.chip.import{background:var(--import-bg);color:var(--import)}
+.chip.preport{background:var(--preport-bg);color:var(--preport)}
+.chip.match{background:var(--match-bg);color:var(--match)}
+
+.toolbar{display:flex;flex-wrap:wrap;gap:14px;align-items:center;justify-content:space-between;margin-bottom:16px}
+.toggle{display:flex;gap:8px;align-items:center;font-size:14px;color:var(--muted);cursor:pointer}
+.legend{display:flex;flex-wrap:wrap;gap:12px;font-size:12.5px;color:var(--muted)}
+.legend span::before{content:"";display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:5px;background:var(--c)}
+
+.round{margin-bottom:26px}
+.round>h3{font:700 13px var(--font-body);letter-spacing:.07em;text-transform:uppercase;color:var(--accent);margin:0 0 10px;
+  display:flex;gap:10px;align-items:center}
+.round>h3::after{content:"";flex:1;height:1px;background:var(--line)}
+.steps{list-style:none;margin:0;padding:0}
+.step{display:grid;grid-template-columns:34px 1fr;gap:12px;position:relative;padding-bottom:12px}
+.step:not(:last-child)::before{content:"";position:absolute;left:16px;top:30px;bottom:-2px;width:2px;background:var(--line)}
+.num{width:32px;height:32px;border-radius:50%;display:grid;place-items:center;font:600 12.5px var(--font-body);
+  background:var(--surface);border:2px solid var(--c);color:var(--c);font-variant-numeric:tabular-nums;z-index:1}
+.body{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:10px 14px;min-width:0}
+.kind{font:600 11px var(--font-body);letter-spacing:.07em;text-transform:uppercase;color:var(--c)}
+.txt{margin:2px 0 0}
+.note{margin:6px 0 0;font-size:13.5px;color:var(--muted)}
+.chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;align-items:center}
+.chips small{color:var(--muted);font-size:12px}
+.branches{list-style:none;margin:8px 0 0;padding:0;display:grid;gap:6px}
+.branches li{font-size:13.5px;background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:6px 10px;display:flex;gap:8px}
+.branches b{color:var(--accent);font-family:var(--font-display)}
+.k-user{--c:var(--user)} .k-wait{--c:var(--wait)} .k-system{--c:var(--export)} .k-verify{--c:var(--verify)} .k-tax{--c:var(--tax)}
+.flag{margin-top:18px;background:var(--warn-bg);color:var(--warn-fg);border-radius:10px;padding:12px 14px;font-size:13.5px}
+
+.tablewrap{overflow-x:auto;background:var(--surface);border:1px solid var(--line);border-radius:10px}
+table{border-collapse:collapse;width:100%;min-width:760px;font-size:14px}
+th,td{text-align:left;vertical-align:top;padding:11px 14px;border-bottom:1px solid var(--line)}
+th{font:600 12px var(--font-body);letter-spacing:.06em;text-transform:uppercase;color:var(--muted);background:var(--bg)}
+tr:last-child td{border-bottom:0}
+td:first-child{font-weight:600;width:19%}
+td.hl{background:var(--accent-soft)}
+@media (prefers-reduced-motion:no-preference){.step{animation:in .25s ease both}@keyframes in{from{opacity:.4;transform:translateY(4px)}}}
+</style>
+
+<div class="wrap">
+<header>
+  <h1>Binder Integration Workflow</h1>
+  <p>How a binder moves from creation through export and Import TR with the tax software. Classic and None behave the same for GoSystem and CCH. Simplified Leadsheets differs between the two.</p>
+</header>
+<nav class="tabs" role="tablist" id="tabs"></nav>
+<main id="view"></main>
+</div>
+
+<script>
+const JOBS={
+  'Export':'export','Automated Export':'export','Import TR':'import','Pre Porting':'preport','Match and Update':'match'
+};
+const OPEN_BR=[['a','Export completed when the binder opens: a completion toaster message appears.'],
+  ['b','Export ongoing when the binder opens: Export Progress shows in the Export window.'],
+  ['c','Export in error when the binder opens: the Export window shows the error details.']];
+const NONE_BR=OPEN_BR.concat([['d','Auto Export is OFF: a proceed window appears on opening the binder to start the export.']]);
+
+const S=(k,t,o)=>Object.assign({k,t},o||{});
+const WIZ='Complete all Review Wizard steps (qualified steps only) and verify the pbfx file is downloaded';
+const FLOWS={
+classic:{
+  title:'Classic Leadsheets',
+  badges:['Same for GoSystem and CCH'],
+  lede:'Export is always manual. The user opens the binder, runs the export, and later runs Import TR by hand after a form is added in the tax software.',
+  rounds:[
+   {h:'Round 1: Create the binder and export',s:[
+     S('user','Create a binder'),
+     S('wait','Wait until the binder reaches In Verification status'),
+     S('user',WIZ),
+     S('user','Open the binder',{note:'Auto Export does not apply. Export is manual only.'}),
+     S('verify','Proforma data from the tax software is available in the binder'),
+     S('verify','OCR data from documents is available in the binder'),
+     S('user','Export the data to the tax software',{jobs:['Export','Automated Export','Import TR'],jl:'Run in the backend'}),
+     S('system','Export Completed message appears'),
+     S('verify','All data is exported to the tax software'),
+     S('verify','Leadsheets output')]},
+   {h:'Round 2: Add new documents',s:[
+     S('user','Add new documents'),
+     S('wait','Wait until the binder reaches In Verification status',{note:'If the binder is open, a "Processing in Progress" banner shows. When processing completes, a "Ready to Add" banner shows to open verification and the binder closes. If the binder is closed, the user cannot open it until it reaches In Verification.'}),
+     S('user',WIZ),
+     S('user','Open the binder',{note:'Auto Export does not apply. Export is manual only.'}),
+     S('verify','OCR data from documents is available in the binder'),
+     S('user','Export the data to the tax software',{jobs:['Export','Automated Export','Import TR'],jl:'Run in the backend'}),
+     S('system','Export Completed message appears'),
+     S('verify','All data is exported to the tax software'),
+     S('verify','Leadsheets output')]},
+   {h:'Round 3: Add a form in the tax software',s:[
+     S('tax','Add a form in the tax software'),
+     S('user','Perform Import TR',{jobs:['Import TR']}),
+     S('verify','Variance and what Leadsheets shows',{note:'Variance appears only in Output Forms. The individual forms section shows no data in Leadsheets.'})]}
+  ]},
+none:{
+  title:'None Leadsheets',
+  badges:['Same for GoSystem and CCH'],
+  lede:'No Leadsheets output is produced. Export starts on opening the binder according to the Auto Export setting, and adding documents triggers Pre Porting.',
+  rounds:[
+   {h:'Round 1: Create the binder and export',s:[
+     S('user','Create a binder'),
+     S('wait','Wait until the binder reaches In Verification status'),
+     S('user',WIZ),
+     S('user','Open the binder',{note:'Export starts automatically in the backend as per the Auto Export setting.',jobs:['Export','Automated Export'],jl:'Run in the backend',br:NONE_BR}),
+     S('verify','Proforma data from the tax software is available in the binder'),
+     S('verify','OCR data from documents is available in the binder'),
+     S('verify','All data is exported to the tax software')]},
+   {h:'Round 2: Add new documents',s:[
+     S('user','Add new documents',{jobs:['Pre Porting'],jl:'Performed'}),
+     S('wait','Wait until the binder reaches In Verification status'),
+     S('user',WIZ),
+     S('user','Open the binder',{note:'Export starts automatically in the backend.',jobs:['Export','Automated Export'],jl:'Run in the backend',br:NONE_BR}),
+     S('verify','OCR data from documents is available in the binder'),
+     S('verify','All data is exported to the tax software')]}
+  ],
+  flag:'Check with the source document: step 11 reads "Export starts automatically ... as Simplified auto exports irrespective of the setting", but its sub-step d says the proceed window appears when Auto Export is OFF. This page follows the Auto Export setting for None, as in step 4. Confirm which is intended.'},
+gosystem:{
+  title:'GoSystem Simplified Leadsheets',
+  badges:['GoSystem only'],
+  lede:'Export runs automatically on opening the binder, whatever the setting. Leadsheets stay blank after the first export until the user runs Import TR, which also runs Match and Update.',
+  rounds:[
+   {h:'Round 1: Create the binder and first export',s:[
+     S('user','Create a binder'),
+     S('wait','Wait until the binder reaches In Verification status'),
+     S('user',WIZ),
+     S('user','Open the binder',{note:'Export starts automatically in the backend, because Simplified auto exports irrespective of the setting.',jobs:['Export','Automated Export'],jl:'Run in the backend',br:OPEN_BR}),
+     S('verify','Proforma data from the tax software is available in the binder'),
+     S('verify','OCR data from documents is available in the binder'),
+     S('verify','All data is exported to the tax software'),
+     S('verify','Leadsheets output',{note:'Leadsheets output is blank after the first export. The individual forms section has data.'}),
+     S('user','Perform Import TR and verify Leadsheets output',{jobs:['Import TR','Match and Update'],jl:'Performed',note:'Leadsheets now show the tax software output.'})]},
+   {h:'Round 2: Add new documents',s:[
+     S('user','Add new documents',{jobs:['Import TR','Match and Update'],jl:'Performed'}),
+     S('wait','Wait until the binder reaches In Verification status'),
+     S('user',WIZ),
+     S('user','Open the binder',{note:'Export starts automatically in the backend.',jobs:['Export','Automated Export'],jl:'Run in the backend',br:OPEN_BR}),
+     S('verify','OCR data from documents is available in the binder'),
+     S('verify','All data is exported to the tax software'),
+     S('verify','Leadsheets output',{note:'Shows the last Leadsheets output. The individual forms section has data.'}),
+     S('user','Perform Import TR and verify Leadsheets output',{jobs:['Import TR','Match and Update'],jl:'Performed',note:'Leadsheets show the tax software output.'})]},
+   {h:'Round 3: Add a form in the tax file',s:[
+     S('tax','Add a new form in the tax file in the tax software'),
+     S('user','Perform Import TR and verify Leadsheets output',{jobs:['Import TR','Match and Update'],jl:'Performed'}),
+     S('verify','Leads tab and individual forms match',{note:'The Leads tab shows the Leadsheets output and the Individual forms section shows the newly added form. Both parts match now.'})]},
+   {h:'Round 4: Add another form, then more documents',s:[
+     S('tax','Add a new form in the tax file in the tax software'),
+     S('user','Add new documents',{jobs:['Import TR','Match and Update'],jl:'Performed'}),
+     S('wait','Wait until the binder reaches In Verification status'),
+     S('user',WIZ),
+     S('user','Open the binder',{note:'Export starts automatically in the backend.',jobs:['Export','Automated Export'],jl:'Run in the backend',br:OPEN_BR}),
+     S('verify','OCR data from documents is available in the binder'),
+     S('verify','All data is exported to the tax software'),
+     S('verify','Leadsheets output',{note:'Shows the last Leadsheets output. The individual forms section has data.'}),
+     S('user','Perform Import TR and verify Leadsheets output',{jobs:['Import TR','Match and Update'],jl:'Performed',note:'Leadsheets show the tax software output.'}),
+     S('verify','Leads tab and individual forms match',{note:'Both parts match now.'})]}
+  ]},
+cch:{
+  title:'CCH Simplified Leadsheets',
+  badges:['CCH only'],
+  lede:'Import TR runs in the backend together with Export, so no manual Import TR is needed. Leadsheets show the tax software output straight after the first export.',
+  rounds:[
+   {h:'Round 1: Create the binder and first export',s:[
+     S('user','Create a binder'),
+     S('wait','Wait until the binder reaches In Verification status'),
+     S('user',WIZ),
+     S('user','Open the binder',{note:'Export starts automatically in the backend, because Simplified auto exports irrespective of the setting.',jobs:['Export','Automated Export','Import TR'],jl:'Run in the backend',br:OPEN_BR}),
+     S('verify','Proforma data from the tax software is available in the binder'),
+     S('verify','OCR data from documents is available in the binder'),
+     S('verify','All data is exported to the tax software'),
+     S('verify','Leadsheets output',{note:'Leadsheets show the tax software output.'})]},
+   {h:'Round 2: Add new documents',s:[
+     S('user','Add new documents',{jobs:['Import TR','Pre Porting','Match and Update'],jl:'Performed'}),
+     S('wait','Wait until the binder reaches In Verification status'),
+     S('user',WIZ),
+     S('user','Open the binder',{note:'Export starts automatically in the backend.',jobs:['Export','Automated Export','Import TR'],jl:'Run in the backend',br:OPEN_BR}),
+     S('verify','OCR data from documents is available in the binder'),
+     S('verify','All data is exported to the tax software'),
+     S('verify','Leadsheets output',{note:'Shows the latest Leadsheets output. The individual forms section has data.'})]},
+   {h:'Round 3: Add a form in the tax software',s:[
+     S('tax','Add a new form in the tax file in the tax software'),
+     S('user','Perform Import TR and verify Leadsheets output',{jobs:['Import TR','Match and Update'],jl:'Performed'}),
+     S('verify','Leads tab and individual forms match',{note:'The Leads tab shows the Leadsheets output and the Individual forms section shows the latest added form. Both parts match now.'})]},
+   {h:'Round 4: Add another form, then more documents',s:[
+     S('tax','Add a new form in the tax file in the tax software'),
+     S('user','Add new documents',{jobs:['Import TR','Pre Porting','Match and Update'],jl:'Performed'}),
+     S('wait','Wait until the binder reaches In Verification status'),
+     S('user',WIZ),
+     S('user','Open the binder',{note:'Export starts automatically in the backend.',jobs:['Export','Automated Export','Import TR'],jl:'Run in the backend',br:OPEN_BR}),
+     S('verify','OCR data from documents is available in the binder'),
+     S('verify','All data is exported to the tax software'),
+     S('verify','Leadsheets output',{note:'Shows the latest Leadsheets output. The individual forms section has data.'})]}
+  ]}
+};
+
+const KIND={user:'User action',wait:'Wait',system:'System',verify:'Verify',tax:'In tax software'};
+const TABS=[['overview','Overview'],['classic','Classic'],['none','None'],['gosystem','Simplified: GoSystem'],['cch','Simplified: CCH'],['compare','Compare']];
+const $=s=>document.querySelector(s);
+const esc=s=>String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;');
+const chip=j=>`<span class="chip ${JOBS[j]}">${j}</span>`;
+let hideVerify=false;
+try{hideVerify=localStorage.getItem('bw-hide')==='1'}catch(e){}
+
+function overview(){
+  return `
+  <h2>How the integration works</h2>
+  <p class="lede">The binder holds documents, OCR data and Leadsheets. The tax software holds the tax return. Data moves between them through a few named jobs.</p>
+  <div class="panel diagram"><figure>
+  <svg viewBox="0 0 760 330" role="img" aria-label="Export sends binder data to the tax software. Import TR brings the tax return output back into the binder, where it shows in Leadsheets.">
+    <defs><marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="currentColor"/></marker></defs>
+    <rect x="10" y="20" width="250" height="290" rx="10" fill="none" stroke="currentColor" stroke-opacity=".35"/>
+    <text x="28" y="48" font-size="14" font-weight="700">Binder</text>
+    <rect x="30" y="62" width="210" height="44" rx="6" fill="var(--accent-soft)"/><text x="46" y="89" font-size="13">Documents and OCR data</text>
+    <rect x="30" y="118" width="210" height="44" rx="6" fill="var(--accent-soft)"/><text x="46" y="145" font-size="13">Review Wizard and pbfx</text>
+    <rect x="30" y="174" width="210" height="44" rx="6" fill="var(--accent-soft)"/><text x="46" y="201" font-size="13">Proforma data</text>
+    <rect x="30" y="230" width="210" height="64" rx="6" fill="var(--accent-soft)"/><text x="46" y="256" font-size="13">Leadsheets</text><text x="46" y="276" font-size="12" fill-opacity=".7">Leads tab, Output Forms, Individual forms</text>
+
+    <rect x="500" y="20" width="250" height="290" rx="10" fill="none" stroke="currentColor" stroke-opacity=".35"/>
+    <text x="518" y="48" font-size="14" font-weight="700">Tax software</text>
+    <text x="518" y="68" font-size="12" fill-opacity=".7">GoSystem or CCH</text>
+    <rect x="520" y="92" width="210" height="52" rx="6" fill="var(--accent-soft)"/><text x="536" y="123" font-size="13">Tax file and forms</text>
+    <rect x="520" y="170" width="210" height="52" rx="6" fill="var(--accent-soft)"/><text x="536" y="201" font-size="13">Tax return output</text>
+
+    <line x1="262" y1="110" x2="498" y2="110" stroke="var(--export)" stroke-width="2.5" marker-end="url(#ar)"/>
+    <text x="380" y="78" font-size="13" font-weight="600" text-anchor="middle" style="fill:var(--export)">Export</text>
+    <text x="380" y="96" font-size="12" text-anchor="middle" fill-opacity=".75">binder data to tax file</text>
+    <line x1="498" y1="196" x2="262" y2="196" stroke="var(--import)" stroke-width="2.5" marker-end="url(#ar)"/>
+    <text x="380" y="164" font-size="13" font-weight="600" text-anchor="middle" style="fill:var(--import)">Import TR</text>
+    <text x="380" y="182" font-size="12" text-anchor="middle" fill-opacity=".75">tax return output to binder</text>
+    <text x="380" y="248" font-size="12" text-anchor="middle" fill-opacity=".75">Automated Export, Pre Porting and</text>
+    <text x="380" y="266" font-size="12" text-anchor="middle" fill-opacity=".75">Match and Update run around these two</text>
+  </svg>
+  <figcaption>Export carries binder data to the tax software. Import TR brings the tax return output back, and that output is what Leadsheets show.</figcaption></figure></div>
+
+  <div class="jobs-key">
+    <div>${chip('Export')}<br>Sends the binder data to the tax software.</div>
+    <div>${chip('Automated Export')}<br>Export that runs in the backend without the user starting it.</div>
+    <div>${chip('Import TR')}<br>Brings the tax return output from the tax software back into the binder.</div>
+    <div>${chip('Pre Porting')}<br>Runs when new documents are added, in the flows where it is listed.</div>
+    <div>${chip('Match and Update')}<br>Runs with Import TR in the Simplified flows to refresh Leadsheets.</div>
+  </div>
+
+  <h2 style="margin-top:28px">Pick a Leadsheets type</h2>
+  <p class="lede">Classic and None are identical for GoSystem and CCH. Only Simplified splits by tax software.</p>
+  <div class="grid">
+    <div class="card"><span class="badge" style="align-self:flex-start">GoSystem + CCH</span><h3>Classic</h3><p>Manual export only. Import TR is run by the user after a form is added.</p><button class="go" data-go="classic">View workflow</button></div>
+    <div class="card"><span class="badge" style="align-self:flex-start">GoSystem + CCH</span><h3>None</h3><p>No Leadsheets output. Export on open follows the Auto Export setting.</p><button class="go" data-go="none">View workflow</button></div>
+    <div class="card"><span class="badge" style="align-self:flex-start">GoSystem</span><h3>Simplified</h3><p>Auto export on open. Leadsheets stay blank until the user runs Import TR.</p><button class="go" data-go="gosystem">View workflow</button></div>
+    <div class="card"><span class="badge" style="align-self:flex-start">CCH</span><h3>Simplified</h3><p>Import TR runs in the backend with Export, so Leadsheets fill straight away.</p><button class="go" data-go="cch">View workflow</button></div>
+  </div>`;
+}
+
+function flow(id){
+  const f=FLOWS[id];let n=0;
+  const rounds=f.rounds.map(r=>{
+    const items=r.s.map(s=>{
+      n++;
+      const hidden=hideVerify&&s.k==='verify';
+      if(hidden)return '';
+      const jobs=s.jobs?`<div class="chips">${s.jobs.map(chip).join('')}<small>${esc(s.jl||'')}</small></div>`:'';
+      const br=s.br?`<ul class="branches">${s.br.map(b=>`<li><b>${b[0]}</b><span>${esc(b[1])}</span></li>`).join('')}</ul>`:'';
+      return `<li class="step k-${s.k}"><div class="num">${n}</div><div class="body"><div class="kind">${KIND[s.k]}</div><p class="txt">${esc(s.t)}</p>${s.note?`<p class="note">${esc(s.note)}</p>`:''}${jobs}${br}</div></li>`;
+    }).join('');
+    return `<section class="round"><h3>${esc(r.h)}</h3><ol class="steps">${items}</ol></section>`;
+  }).join('');
+  return `<h2>${f.title}</h2>
+  <div class="badges">${f.badges.map(b=>`<span class="badge">${b}</span>`).join('')}</div>
+  <p class="lede">${f.lede}</p>
+  <div class="toolbar">
+    <label class="toggle"><input type="checkbox" id="hv" ${hideVerify?'checked':''}> Hide verification steps</label>
+    <div class="legend"><span style="--c:var(--user)">User action</span><span style="--c:var(--wait)">Wait</span><span style="--c:var(--verify)">Verify</span><span style="--c:var(--tax)">In tax software</span></div>
+  </div>${rounds}${f.flag?`<div class="flag"><b>To confirm:</b> ${f.flag}</div>`:''}`;
+}
+
+function compare(){
+  const c=(a)=>a.map(x=>`<td>${x}</td>`).join('');
+  const J=(...a)=>a.map(chip).join(' ');
+  const rows=[
+   ['Applies to','GoSystem and CCH, identical','GoSystem and CCH, identical','GoSystem only','CCH only'],
+   ['Export on opening the binder','Manual only. Auto Export does not apply.','Automatic per the Auto Export setting. If OFF, a proceed window appears.','Automatic, whatever the setting','Automatic, whatever the setting'],
+   ['Backend jobs on export',J('Export','Automated Export','Import TR')+'<br>Run when the user exports',J('Export','Automated Export'),J('Export','Automated Export'),J('Export','Automated Export','Import TR')],
+   ['Import TR','Run by the user after adding a form in the tax software','Not part of the flow','Run by the user, after export and after adding forms','Runs in the backend with export; the user runs it after adding a form'],
+   ['Leadsheets after first export','Verified after the manual export','No Leadsheets output','Blank until Import TR; individual forms have data','Shows the tax software output'],
+   ['On adding new documents','Binder reprocesses; user exports manually again','Pre Porting','Import TR and Match and Update','Import TR, Pre Porting and Match and Update'],
+   ['After adding a form in the tax software','Variance shows in Output Forms only. Individual forms show no data in Leadsheets.','Not covered','After Import TR, Leads tab and Individual forms match','After Import TR, Leads tab and Individual forms match']
+  ];
+  return `<h2>Side-by-side comparison</h2><p class="lede">Where the four workflows differ. The shaded columns are the two that vary by tax software.</p>
+  <div class="tablewrap"><table><thead><tr><th></th><th>Classic</th><th>None</th><th>Simplified: GoSystem</th><th>Simplified: CCH</th></tr></thead><tbody>
+  ${rows.map(r=>`<tr><td>${r[0]}</td>${r.slice(1).map((x,i)=>`<td class="${i>=2?'hl':''}">${x}</td>`).join('')}</tr>`).join('')}
+  </tbody></table></div>`;
+}
+
+function render(){
+  let id=(location.hash||'#overview').slice(1);
+  if(!TABS.some(t=>t[0]===id))id='overview';
+  $('#tabs').innerHTML=TABS.map(t=>`<button role="tab" data-go="${t[0]}" aria-selected="${t[0]===id}">${t[1]}</button>`).join('');
+  $('#view').innerHTML=id==='overview'?overview():id==='compare'?compare():flow(id);
+  const hv=$('#hv');if(hv)hv.onchange=e=>{hideVerify=e.target.checked;try{localStorage.setItem('bw-hide',hideVerify?'1':'0')}catch(x){}render()};
+}
+document.addEventListener('click',e=>{const b=e.target.closest('[data-go]');if(b){location.hash=b.dataset.go;window.scrollTo(0,0)}});
+window.addEventListener('hashchange',render);
+render();
+</script>
+
+</body></html>
